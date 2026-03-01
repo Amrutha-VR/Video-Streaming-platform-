@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Upload Video</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="bar">
+    <h1>Upload Video</h1>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/live">Live</a>
+    </nav>
+  </header>
+  <main class="container">
+    <form id="uploadForm" enctype="multipart/form-data">
+      <label class="file">Choose video file</label>
+      <input type="file" id="videoFile" name="video" accept="video/*" />
+      <button type="submit">Upload</button>
+    </form>
+    <section>
+      <h3>Result</h3>
+      <pre id="result" class="transcript"></pre>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('videoFile');
+    const result = document.getElementById('result');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!fileInput.files || !fileInput.files[0]) return;
+      const fd = new FormData();
+      fd.append('video', fileInput.files[0]);
+      result.textContent = 'Uploading...';
+      try {
+        const res = await fetch('/upload-video', { method: 'POST', body: fd });
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) {
+          const j = await res.json();
+          result.textContent = j.text || JSON.stringify(j, null, 2);
+        } else {
+          const txt = await res.text();
+          result.textContent = txt || '(no transcript)';
+        }
+      } catch (err) {
+        result.textContent = 'Upload failed';
+      }
+    });
+  </script>
+</body>
+</html>
