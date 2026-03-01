@@ -2,20 +2,21 @@ import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, UploadFile
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 
+import ffmpeg
 from services.audio_extractor import extract_audio_chunks
 from services.asr_service import transcribe_chunks
+from services.asr_streaming import StreamingASR
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import asyncio
-    from funasr import AutoModel
-
     def _load():
-        return AutoModel(model="paraformer-zh-streaming", device="cpu")
+        # Load local English-only Faster-Whisper model (CPU, int8)
+        return StreamingASR()
 
     app.state.asr_model = await asyncio.to_thread(_load)
     yield
@@ -78,20 +79,73 @@ async def docs():
 
 @app.post("/upload-video")
 async def upload_video(request: Request, video: UploadFile):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-        content = await video.read()
-        tmp.write(content)
-        tmp_path = Path(tmp.name)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+            content = await video.read()
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
 
-    def generate():
+        model = request.app.state.asr_model
+        wav_tmp = None
         try:
-            model = request.app.state.asr_model
-            for chunk, _ in transcribe_chunks(extract_audio_chunks(tmp_path), model):
-                yield chunk
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wtmp:
+                wav_tmp = Path(wtmp.name)
+            ffmpeg.input(str(tmp_path)).output(str(wav_tmp), format='wav', ac=1, ar=16000).run(quiet=True, overwrite_output=True)
+            text = model.transcribe_chunk(str(wav_tmp)) or ""
+            return {"text": text}
         finally:
+            if wav_tmp and wav_tmp.exists():
+                wav_tmp.unlink(missing_ok=True)
+    finally:
+        if tmp_path and tmp_path.exists():
             tmp_path.unlink(missing_ok=True)
 
-    return StreamingResponse(
-        generate(),
-        media_type="application/octet-stream",
-    )
+
+@app.websocket("/ws/transcribe")
+async def websocket_transcribe(websocket: WebSocket):
+    await websocket.accept()
+    model = websocket.app.state.asr_model
+    try:
+        while True:
+            data = await websocket.receive_bytes()
+            if not data or len(data) == 0:
+                continue
+            text = model.transcribe_pcm_bytes(data)
+            if text:
+                await websocket.send_json({"text": text})
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+
+
+@app.websocket("/ws/video-stream")
+async def websocket_video_stream(websocket: WebSocket):
+  await websocket.accept()
+  model = websocket.app.state.asr_model
+  try:
+    while True:
+      chunk = await websocket.receive_bytes()
+      if not chunk or len(chunk) == 0:
+        continue
+      tmp_path = None
+      try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as vf:
+          vf.write(chunk)
+          tmp_path = Path(vf.name)
+        for pcm in extract_audio_chunks(tmp_path):
+          text = model.transcribe_pcm_bytes(pcm)
+          if text:
+            await websocket.send_json({"text": text})
+      finally:
+        if tmp_path and tmp_path.exists():
+          try:
+            tmp_path.unlink(missing_ok=True)
+          except Exception:
+            pass
+  except WebSocketDisconnect:
+    pass
+  except Exception:
+    pass
+
