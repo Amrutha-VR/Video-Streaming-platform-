@@ -1,4 +1,4 @@
-# SecureWatch — Real-Time Video Intelligence & Keyword Alert System
+# YAP-Detector — Real-Time Video Intelligence & Keyword Alert System
 
 <div align="center">
 
@@ -12,7 +12,7 @@
 
 ## Overview
 
-SecureWatch is a real-time video intelligence platform that transcribes live YouTube streams and uploaded videos entirely on-device, monitors the transcript for predefined security-critical keywords, and fires instant alerts the moment a match is detected.
+YAP-Detector is a real-time video intelligence platform that transcribes live YouTube streams and uploaded videos entirely on-device, monitors the transcript for predefined security-critical keywords, and fires instant alerts the moment a match is detected.
 
 Every design decision in this project traces back to a specific, documented problem in real-time ASR — and a specific published solution. This is not a Whisper wrapper. It is an implementation of three research papers applied to a practical surveillance monitoring use case.
 
