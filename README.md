@@ -33,7 +33,7 @@ Every design decision in this project traces back to a specific, documented prob
 
 ## Demo
 
-> *(Add GIF or screenshots here)*
+
 
 ---
 
