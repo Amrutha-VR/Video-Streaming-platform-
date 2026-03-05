@@ -35,7 +35,8 @@ Every design decision in this project traces back to a specific, documented prob
 
 Watch the project demo here:
 
-[Click to watch the demo] (https://drive.google.com/file/d/1FS-rqN44fIrJso3UinsC3IpcYYuD7BNP/view?usp=sharing)
+[Click to watch the demo] (https://drive.google.com/file/d/1FS-rqN44fIrJso3UinsC3IpcYYuD7BNP/view?usp=sharing) 
+- since i recorder using xbox game bar(windows+R), I could not capture the part where I am uploading video from my local.But the first phase of the web app includes video uploading from locally saved video.
 
 ---
 
